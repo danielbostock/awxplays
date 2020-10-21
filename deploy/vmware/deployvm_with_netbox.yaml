@@ -1,0 +1,248 @@
+---
+
+#<--- Variable Locations
+
+####
+#EXTRA_VARS (Survey Vars)
+####
+
+# Survey vars - You can view or edit these by opening the link below to the AWX Template
+# <insert_link_here>
+
+# Survey vars listed below are in order of their presentation within the survey and not in the vars file.
+
+# vcenter_hostname
+# esxi_host
+# host_env
+# host_name
+# host_desc
+# host_template
+# host_vcpu
+# host_cores 
+# host_mem
+# host_disk
+# host_disktype
+# host_dstore
+
+####
+# VARS_FILE
+####
+# Vars File - ./vars/labvars.yml - refer to file for further documentation.
+
+## VCenter Connection
+
+# vcenter_user 
+# vcenter_pass
+# vcenter_dc
+
+## Netbox Connection
+# nb_url
+# nb_token
+
+## Network Environment Configuration Vars
+
+# $env_name
+# $env_tag
+# $env_host_name_prefix
+# $env_prefix
+# $env_netmask
+# $env_ipgwy
+# $env_dns
+
+## NetBox Management
+
+#host_net_name
+#host_net_desc
+#host_role
+#host_site
+#host_rack
+#host_cluster
+#tengrp
+#ten
+
+## IP Address
+#ipaddrtxt
+####
+
+
+- name: "Deploy VM Host & NetBox"
+  connection: local
+  hosts: localhost
+  gather_facts: False
+  collections:
+    - netbox.netbox
+  vars_files:
+    - ./vars/labvars.yaml
+
+  tasks:
+
+##IP Prefixes used by Netbox
+
+### Set the Corporate Envirionment vars
+    - name: Set vars for environment Corporate
+      set_fact:
+          nb_prefix: "{{ corp_prefix }}"
+          vcenter_folder: "{{ corp_name }}"
+          host_net_vlan: "{{ corp_name }}"
+          host_net_ipnetmask: "{{ corp_netmask }}"
+          host_net_ipgwy: "{{ corp_ipgwy }}"
+          host_net_dns: "{{ corp_dns }}"
+          host_tag: "{{ corp_tag }}"
+          host_name_prefix: "{{ corp_host_name_prefix }}"
+      when: host_env == "Corporate"
+
+### Set the Production Envirionment vars
+    - name: Set vars for environment DMZ
+      set_fact:
+          nb_prefix: "{{ prod_prefix }}"
+          vcenter_folder: "{{ prod_name }}"
+          host_net_vlan: "{{ prod_name }}"
+          host_net_ipnetmask: "{{ prod_netmask }}"
+          host_net_ipgwy: "{{ prod_ipgwy }}"
+          host_net_dns: "{{ prod_dns }}"
+          host_tag: "{{ prod_tag }}"
+          host_name_prefix: "{{ prod_host_name_prefix }}"
+      when: host_env == "Production"
+
+### Set the Build Envirionment vars
+    - name: Set vars for environment Build
+      set_fact:
+          nb_prefix: "{{ build_prefix }}"
+          vcenter_folder: "{{ build_name }}"
+          host_net_vlan: "{{ build_name }}"
+          host_net_ipnetmask: "{{ build_netmask }}"
+          host_net_ipgwy: "{{ build_ipgwy }}"
+          host_net_dns: "{{ build_dns }}"
+          host_tag: "{{ build_tag }}"
+          host_name_prefix: "{{ prod_host_name_prefix }}"
+      when: host_env == "Build"
+
+## NetBox Platforms
+
+### CentOS Templates
+    - name: Set NB Platform var dependent on template chosen
+      set_fact:
+          host_plat: CentOS8
+      when: host_template == "centos8"
+
+### Ubuntu Templates
+    - name: Set NB Platform var dependent on template chosen
+      set_fact:
+          host_plat: Ubuntu19Server
+      when: host_template == "ubuntu19_server"
+
+
+### Windows Templates
+    - name: Set NB Platform var dependent on template chosen
+      set_fact:
+          host_plat: WinSvr2k19
+      when: host_template == "win2k19"
+  
+    - name: Set NB Platform var dependent on template chosen
+      set_fact:
+          host_plat: WinSvr2k16
+      when: host_template == "win2k16"
+
+    - name: NB Task 1 - Create a new NetBox VM entry
+      netbox_virtual_machine:
+        netbox_url: "{{ nb_url }}"
+        validate_certs: False
+        netbox_token: "{{ nb_token }}"
+        data:
+          name: "{{host_name_prefix}}{{ host_name }}"
+          virtual_machine_role: "{{ host_role }}"
+          site: "{{ host_site }}"
+          tenant: "{{ ten }}"
+          cluster: "{{ host_cluster }}"
+          disk: "{{ host_disk }}"
+          vcpus: "{{ host_vcpu }}"
+          memory: "{{ host_mem }}"
+          platform: "{{ host_plat }}"
+          status: Active
+        state: present
+    
+    - name: NB Task 2 - Create an Interface for NetBox VM entry
+      netbox_vm_interface:
+        netbox_url: "{{ nb_url }}"
+        validate_certs: False
+        netbox_token: "{{ nb_token }}"
+        data:
+          name: "{{ host_net_name }}"
+          untagged_vlan: "{{ host_net_vlan }}"
+          description: "{{ host_net_desc }}"
+          virtual_machine: "{{ host_name_prefix }}{{ host_name }}"
+          mode: Access
+          enabled: yes
+        state: present
+      
+    - name: NB Task 3 - Get new IP address, assign to VM interface, then create NB entry
+      netbox_ip_address:
+        netbox_url: "{{ nb_url }}"
+        validate_certs: False
+        netbox_token: "{{ nb_token }}"
+        data:
+          prefix: "{{ nb_prefix }}"
+          dns_name: "{{ host_name_prefix }}{{ host_name }}.lab.local"
+          description: "{{ host_desc }}"
+          tenant: "{{ ten }}"
+          assigned_object:
+            name: "{{ host_net_name }}"
+            virtual_machine: "{{ host_name_prefix }}{{ host_name }}"
+        state: new
+      register: ip
+
+
+    - name: IP Task 1 - Copy new IP address to file
+      local_action:
+        module: copy
+        content: "{{ ip.ip_address.address }}"
+        dest: "{{ ipaddrtxt }}"
+    
+    - name: IP Task 2 - Replace /x netmask in gathered IP from NetBox
+      replace:
+        path: "{{ ipaddrtxt }}"
+        regexp: \/\w+$
+        replace: ''
+      
+    - name: IP Task 3 - Create var from the ippaddr.txt file
+      set_fact:
+        ipaddr: "{{ lookup('file', '{{ ipaddrtxt }}') }}"
+
+    - name: VCENTER Task 1 - Create a virtual machine from a template
+      community.vmware.vmware_guest:
+        hostname: "{{ vcenter_host }}"
+        username: "{{ vcenter_user }}"
+        password: "{{ vcenter_pass }}"
+        esxi_hostname: "{{ esxi_host }}"
+        datacenter: "{{ vcenter_dc }}"
+        validate_certs: no
+        folder: "{{ vcenter_folder }}"
+        name: "{{ host_name_prefix }}{{ host_name }}"
+        state: poweredon
+        template: "{{host_template}}"
+        disk:
+        - size_gb: "{{ host_disk }}"
+          type: "{{ host_disktype }}"
+          datastore: "{{ host_dstore }}"
+        hardware:
+          memory_mb: "{{ host_mem }}"
+          num_cpus: "{{ host_vcpu }}"
+          num_cpu_cores_per_socket: "{{ host_cores }}"
+          scsi: paravirtual
+          memory_reservation_lock: True
+          hotadd_cpu: True
+          hotremove_cpu: True
+          hotadd_memory: True
+          version: 14 # Hardware version of virtual machine
+        networks:
+        - name: "{{ host_net_vlan }}"
+          type: static
+          device_type: vmxnet3
+          ip: "{{ ipaddr }}"
+          netmask: "{{ host_net_netmask }}"
+          gateway: "{{ host_net_ipgwy }}"
+          dns_servers: "{{ host_net_dns }}"
+        wait_for_ip_address: yes
+        wait_for_ip_address_timeout: 300
+      delegate_to: localhost
+      register: deploy

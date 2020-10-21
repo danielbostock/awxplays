@@ -1,0 +1,96 @@
+#<--- Vars File Documentation
+
+# Organised by purpose group, not location within vars file
+
+## VCenter Connection
+# vcenter_user - user for accessing vcenter api
+# vcenter_pass - password for vcenter_user
+# vcenter_dc - VCenter Datacenter
+
+## Netbox Connection
+# nb_url - NetBox URL
+# nb_token - NetBox API Token
+
+## Host Config (Used by NetBox & VMWare)
+#host_role - Role of the server, this will be later added into a survey var
+#host_site - NetBox defined Site
+#host_rack -  NetBox defined rack
+#host_cluster- Netbox defined VM Cluster
+
+## Network Configuration
+
+# $env_name - The Environment name, used by VCenter for the port group and folder, refer to your VCenter setup
+# $env_tag - Tag or tags you apply, these need to be formatted as a dictionary or a single string will work
+# $env_host_name_prefix - This is the environment prefix you may or may assign to hosts ie: 'labcvm01', C = Corp
+# $env_prefix - NetBox prefix for $ENV VLAN to search for next IP
+# $env_netmask - Netmask, used by vmware.guest module
+# $env_ipgwy - Gateway, used by vmware.guest module
+# $env_dns - DNS hosts, used by vmware.guest module, this needs to be a dictionary or a single string
+
+## NetBox Management
+
+#host_net_name - NetBox network interface name. IE: VMware uses vnic#, linux uses ens###
+#host_net_desc - NetBox NIC description
+#host_role - NetBox defined role for a VM or device
+#host_site - NetbBox defined site for the VM or device
+#host_rack - NetBox defined rack for where the VM or device will exist
+#host_cluster - NetBox VM Cluser for VM's to be added into for easier group management
+#tengrp - NetBox Tenant Group
+#ten - NetBox Tenant
+
+
+
+#VCenter Connection
+vcenter_user: 
+vcenter_pass: 
+vcenter_dc: 
+
+# NetBox Connection
+nb_url: 
+nb_token: 
+
+# Network Environment Configuration Vars
+##  Corporate
+corp_name: #This needs to match your VCenter port group and VCenter folder.
+corp_tag:
+corp_host_name_prefix:
+corp_prefix: 
+corp_ipnetmask: 
+corp_ipgwy: 
+corp_dns:
+  - 0.0.0.0
+  - 0.0.0.0
+## Production
+prod_name: #This needs to match your VCenter port group and VCenter folder.
+prod_tag:
+prod_host_name_prefix:
+prod_prefix: 
+prod_ipnetmask: 
+prod_ipgwy: 
+prod_dns:
+  - 0.0.0.0
+  - 0.0.0.0
+
+## Build
+build_name: #This needs to match your VCenter port group and VCenter folder.
+build_tag:
+build_host_name_prefix:
+build_prefix: 
+build_ipnetmask: 
+build_ipgwy: 
+build_dns:
+  - 0.0.0.0
+  - 0.0.0.0
+
+#NetBox Management
+host_net_name: vnic1
+host_net_desc: "{{ host_net_name }} connected to {{ host_net_vlan }}"
+## IP Address Temp File
+ipaddrtxt: ./temp/ipaddr.txt
+## Host Config
+host_role: LAB Servers
+host_site: Neverland Home
+host_rack: Neverland Home Rack
+host_cluster: NV-HOME Cluster Primary
+tengrp: 
+ten:
