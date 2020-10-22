@@ -88,9 +88,9 @@ host_net_desc: "{{ host_net_name }} connected to {{ host_net_vlan }}"
 ## IP Address Temp File
 ipaddrtxt: ./temp/ipaddr.txt
 ## Host Config
-host_role: LAB Servers
-host_site: Neverland Home
-host_rack: Neverland Home Rack
-host_cluster: NV-HOME Cluster Primary
+host_role:
+host_site:
+host_rack:
+host_cluster:
 tengrp: 
 ten:
